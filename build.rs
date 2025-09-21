@@ -21,6 +21,7 @@ fn main() {
         .define("ENABLE_WEBP", "OFF")
         .define("ENABLE_OPENJPEG", "OFF")
         .define("CMAKE_INSTALL_PREFIX", &out_dir)
+        .define("CMAKE_C_FLAGS", "-DMINIMUM_SEVERITY=6")
         .out_dir(&format!("{}/leptonica-build-{}", out_dir, target))
         .always_configure(true)
         .build();
