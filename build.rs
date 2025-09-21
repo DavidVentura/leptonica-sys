@@ -1,88 +1,39 @@
 extern crate bindgen;
+extern crate cmake;
 
 use std::env;
 use std::path::PathBuf;
 #[cfg(windows)]
 use vcpkg;
 
-// const MINIMUM_LEPT_VERSION: &str = "1.80.0";
-
-#[cfg(windows)]
-fn find_leptonica_system_lib() -> Option<String> {
-    println!("cargo:rerun-if-env-changed=LEPTONICA_INCLUDE_PATH");
-    println!("cargo:rerun-if-env-changed=LEPTONICA_LINK_PATHS");
-    println!("cargo:rerun-if-env-changed=LEPTONICA_LINK_LIBS");
-
-    let vcpkg = || {
-        let lib = vcpkg::Config::new().find_package("leptonica").unwrap();
-
-        let include = lib
-            .include_paths
-            .iter()
-            .map(|x| x.to_string_lossy())
-            .collect::<String>();
-        Some(include)
-    };
-
-    let include_path = env::var("LEPTONICA_INCLUDE_PATH").ok();
-    let link_paths = env::var("LEPTONICA_LINK_PATHS").ok();
-    let link_paths = link_paths.as_deref().map(|x| x.split(','));
-    let link_libs = env::var("LEPTONICA_LINK_LIBS").ok();
-    let link_libs = link_libs.as_deref().map(|x| x.split(','));
-    if let (Some(include_path), Some(link_paths), Some(link_libs)) =
-        (include_path, link_paths, link_libs)
-    {
-        for link_path in link_paths {
-            println!("cargo:rustc-link-search={}", link_path)
-        }
-
-        for link_lib in link_libs {
-            println!("cargo:rustc-link-lib={}", link_lib)
-        }
-
-        Some(include_path)
-    } else {
-        vcpkg()
-    }
-}
-
-// we sometimes need additional search paths, which we get using pkg-config
-// we can use leptonica installed anywhere on Linux.
-// if you change install path(--prefix) to `configure` script.
-// set `export PKG_CONFIG_PATH=/path-to-lib/pkgconfig` before.
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "freebsd"))]
-fn find_leptonica_system_lib() -> Option<String> {
-    let pk = pkg_config::Config::new().probe("lept").unwrap();
-    // Tell cargo to tell rustc to link the system proj shared library.
-    println!("cargo:rustc-link-search=native={:?}", pk.link_paths[0]);
-    println!("cargo:rustc-link-lib={}", pk.libs[0]);
-
-    let mut include_path = pk.include_paths[0].clone();
-    if include_path.ends_with("leptonica") {
-        include_path.pop();
-    }
-    Some(include_path.to_str().unwrap().into())
-}
-
-#[cfg(all(
-    not(windows),
-    not(target_os = "macos"),
-    not(target_os = "linux"),
-    not(target_os = "freebsd")
-))]
-fn find_leptonica_system_lib() -> Option<String> {
-    println!("cargo:rustc-link-lib=lept");
-    None
-}
-
 fn main() {
-    let clang_extra_include = find_leptonica_system_lib();
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let target = env::var("TARGET").unwrap();
 
-    let mut bindings = bindgen::Builder::default().header("wrapper.h");
+    let _dst = cmake::Config::new("leptonica")
+        .define("BUILD_PROG", "OFF")
+        .define("BUILD_SHARED_LIBS", "OFF")
+        .define("ENABLE_ZLIB", "OFF")
+        .define("ENABLE_PNG", "OFF")
+        .define("ENABLE_GIF", "OFF")
+        .define("ENABLE_JPEG", "OFF")
+        .define("ENABLE_TIFF", "OFF")
+        .define("ENABLE_WEBP", "OFF")
+        .define("ENABLE_OPENJPEG", "OFF")
+        .define("CMAKE_INSTALL_PREFIX", &out_dir)
+        .out_dir(&format!("{}/leptonica-build-{}", out_dir, target))
+        .always_configure(true)
+        .build();
 
-    if let Some(include_path) = clang_extra_include {
-        bindings = bindings.clang_arg(format!("-I{}", include_path));
-    }
+    let lib_path = format!("{}/lib", out_dir);
+    println!("cargo:rustc-link-search=native={}", lib_path);
+    println!("cargo:rustc-link-lib=static=leptonica");
+
+    let include_path = PathBuf::from(&format!("{}/include", out_dir));
+
+    let mut bindings = bindgen::Builder::default()
+        .header("wrapper.h")
+        .clang_arg(format!("-I{}", include_path.display()));
 
     bindings = bindings.blocklist_type("max_align_t");
 
@@ -95,4 +46,8 @@ fn main() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
+
+    // Expose paths for dependent crates (becomes DEP_LEPT_* environment variables)
+    println!("cargo:include={}", include_path.display());
+    println!("cargo:lib={}", lib_path);
 }
