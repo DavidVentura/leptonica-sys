@@ -44,6 +44,7 @@ fn main() {
         .blocklist_function("qfcvt")
         .blocklist_function("qgcvt")
         .blocklist_function("strtold")
+        .blocklist_function("strtold_l")
         // [u64; 4usize]
         .blocklist_function("vasprintf")
         .blocklist_function("vdprintf")
