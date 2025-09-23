@@ -3,14 +3,13 @@ extern crate cmake;
 
 use std::env;
 use std::path::PathBuf;
-#[cfg(windows)]
-use vcpkg;
 
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let target = env::var("TARGET").unwrap();
 
     let _dst = cmake::Config::new("leptonica")
+        .define("ANDROID_BUILD", "ON")
         .define("BUILD_PROG", "OFF")
         .define("BUILD_SHARED_LIBS", "OFF")
         .define("ENABLE_ZLIB", "OFF")
@@ -36,7 +35,14 @@ fn main() {
         .header("wrapper.h")
         .clang_arg(format!("-I{}", include_path.display()));
 
-    bindings = bindings.blocklist_type("max_align_t");
+    bindings = bindings
+        .blocklist_type("max_align_t")
+        .blocklist_function("qecvt_r")
+        .blocklist_function("qfcvt_r")
+        .blocklist_function("qecvt")
+        .blocklist_function("qfcvt")
+        .blocklist_function("qgcvt")
+        .blocklist_function("strtold");
 
     let bindings = bindings
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
