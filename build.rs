@@ -37,12 +37,26 @@ fn main() {
 
     bindings = bindings
         .blocklist_type("max_align_t")
+        // u128
         .blocklist_function("qecvt_r")
         .blocklist_function("qfcvt_r")
         .blocklist_function("qecvt")
         .blocklist_function("qfcvt")
         .blocklist_function("qgcvt")
-        .blocklist_function("strtold");
+        .blocklist_function("strtold")
+        // [u64; 4usize]
+        .blocklist_function("vasprintf")
+        .blocklist_function("vdprintf")
+        .blocklist_function("vfprintf")
+        .blocklist_function("vfscanf")
+        .blocklist_function("vfscanf1")
+        .blocklist_function("vprintf")
+        .blocklist_function("vscanf")
+        .blocklist_function("vscanf1")
+        .blocklist_function("vsnprintf")
+        .blocklist_function("vsprintf")
+        .blocklist_function("vsscanf")
+        .blocklist_function("vsscanf1");
 
     let bindings = bindings
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
