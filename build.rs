@@ -8,7 +8,22 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let target = env::var("TARGET").unwrap();
 
-    let _dst = cmake::Config::new("leptonica")
+    let mut config = cmake::Config::new("leptonica");
+    for var in [
+        "CMAKE_TOOLCHAIN_FILE",
+        "CMAKE_SYSTEM_NAME",
+        "CMAKE_SYSTEM_PROCESSOR",
+        "CMAKE_C_COMPILER",
+        "CMAKE_CXX_COMPILER",
+        "ANDROID_ABI",
+        "ANDROID_PLATFORM",
+    ] {
+        println!("cargo:rerun-if-env-changed={var}");
+        if let Ok(value) = env::var(var) {
+            config.define(var, &value);
+        }
+    }
+    let _dst = config
         .define("ANDROID_BUILD", "ON")
         .define("BUILD_PROG", "OFF")
         .define("BUILD_SHARED_LIBS", "OFF")
@@ -20,7 +35,10 @@ fn main() {
         .define("ENABLE_WEBP", "OFF")
         .define("ENABLE_OPENJPEG", "OFF")
         .define("CMAKE_INSTALL_PREFIX", &out_dir)
-        .define("CMAKE_C_FLAGS", "-DMINIMUM_SEVERITY=6")
+        .define(
+            "CMAKE_C_FLAGS",
+            "-DMINIMUM_SEVERITY=6 -ffunction-sections -fdata-sections -fPIC",
+        )
         .out_dir(&format!("{}/leptonica-build-{}", out_dir, target))
         .always_configure(true)
         .build();
